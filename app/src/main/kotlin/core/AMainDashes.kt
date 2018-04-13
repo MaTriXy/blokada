@@ -7,19 +7,19 @@ import android.net.Uri
 import android.os.Build
 import android.support.v4.app.ShareCompat
 import android.support.v4.content.FileProvider
-import android.view.LayoutInflater
 import android.view.ViewGroup
 import com.github.salomonbrys.kodein.instance
 import gs.environment.ComponentProvider
 import gs.environment.Environment
 import gs.environment.Journal
 import gs.environment.inject
-import gs.presentation.WebViewActor
+import gs.presentation.WebDash
+import gs.property.Device
 import gs.property.IProperty
+import gs.property.IWhen
 import gs.property.getPersistencePath
 import org.blokada.BuildConfig
 import org.blokada.R
-import org.obsolete.IWhen
 import java.io.File
 import java.net.URL
 
@@ -47,9 +47,9 @@ class DonateDash(
 ) {
 
     override fun createView(parent: Any): Any? {
-        val view = LayoutInflater.from(ctx).inflate(R.layout.content_webview, parent as ViewGroup,
-                false)
-        val actor = WebViewActor(null, pages.donate, view, javascript = true)
+        val actor = WebDash(xx, pages.donate, javascript = true)
+        val view = actor.createView(ctx, parent as ViewGroup)
+        actor.attach(view)
         onBack = { actor.reload() }
         return view
     }
@@ -68,9 +68,9 @@ class NewsDash(
 ) {
 
     override fun createView(parent: Any): Any? {
-        val view = LayoutInflater.from(ctx).inflate(R.layout.content_webview, parent as ViewGroup,
-                false)
-        val actor = WebViewActor(null, pages.news, view, forceEmbedded = true, javascript = true)
+        val actor = WebDash(xx, pages.news, forceEmbedded = true, javascript = true)
+        val view = actor.createView(ctx, parent as ViewGroup)
+        actor.attach(view)
         onBack = { actor.reload() }
         return view
     }
@@ -89,9 +89,9 @@ class FaqDash(
 ) {
 
     override fun createView(parent: Any): Any? {
-        val view = LayoutInflater.from(ctx).inflate(R.layout.content_webview, parent as ViewGroup,
-                false)
-        val actor = WebViewActor(null, pages.help, view)
+        val actor = WebDash(xx, pages.help)
+        val view = actor.createView(ctx, parent as ViewGroup)
+        actor.attach(view)
         onBack = { actor.reload() }
         return view
     }
@@ -109,9 +109,10 @@ class FeedbackDash(
         hasView = true
 ) {
     override fun createView(parent: Any): Any? {
-        val view = LayoutInflater.from(ctx).inflate(R.layout.content_webview, parent as ViewGroup, false)
-        val actor = WebViewActor(null, pages.feedback, view, forceEmbedded = true, javascript = true)
-        onBack = { actor.reload() }
+        val actor = WebDash(xx, pages.feedback, forceEmbedded = true, javascript = true)
+        val view = actor.createView(ctx, parent as ViewGroup)
+        actor.attach(view)
+        onBack = { actor.detach(view) }
         return view
     }
 }
@@ -128,8 +129,9 @@ class PatronDash(
         menuDashes = Triple(null, null, OpenInBrowserDash(ctx, pages.patron))
 ) {
     override fun createView(parent: Any): Any? {
-        val view = LayoutInflater.from(ctx).inflate(R.layout.content_webview, parent as ViewGroup, false)
-        val actor = WebViewActor(null, pages.patron, view, forceEmbedded = true, javascript = true, reloadOnError = false)
+        val actor = WebDash(xx, pages.patron, forceEmbedded = true, javascript = true, reloadOnError = false)
+        val view = actor.createView(ctx, parent as ViewGroup)
+        actor.attach(view)
         onBack = { actor.reload() }
         return view
     }
@@ -147,8 +149,9 @@ class PatronAboutDash(
         hasView = true
 ) {
     override fun createView(parent: Any): Any? {
-        val view = LayoutInflater.from(ctx).inflate(R.layout.content_webview, parent as ViewGroup, false)
-        val actor = WebViewActor(null, pages.patronAbout, view, forceEmbedded = true, javascript = true)
+        val actor = WebDash(xx, pages.patronAbout, forceEmbedded = true, javascript = true)
+        val view = actor.createView(ctx, parent as ViewGroup)
+        actor.attach(view)
         onBack = { actor.reload() }
         return view
     }
@@ -166,8 +169,9 @@ class CtaDash(
         menuDashes = Triple(null, null, OpenInBrowserDash(ctx, pages.cta))
 ) {
     override fun createView(parent: Any): Any? {
-        val view = LayoutInflater.from(ctx).inflate(R.layout.content_webview, parent as ViewGroup, false)
-        val actor = WebViewActor(null, pages.cta, view, forceEmbedded = true, javascript = true)
+        val actor = WebDash(xx, pages.cta, forceEmbedded = true, javascript = true)
+        val view = actor.createView(ctx, parent as ViewGroup)
+        actor.attach(view)
         onBack = { actor.reload() }
         return view
     }
@@ -185,8 +189,9 @@ class ChangelogDash(
         hasView = true
 ) {
     override fun createView(parent: Any): Any? {
-        val view = LayoutInflater.from(ctx).inflate(R.layout.content_webview, parent as ViewGroup, false)
-        val actor = WebViewActor(null, pages.changelog, view)
+        val actor = WebDash(xx, pages.changelog)
+        val view = actor.createView(ctx, parent as ViewGroup)
+        actor.attach(view)
         onBack = { actor.reload() }
         return view
     }
@@ -204,8 +209,9 @@ class CreditsDash(
         hasView = true
 ) {
     override fun createView(parent: Any): Any? {
-        val view = LayoutInflater.from(ctx).inflate(R.layout.content_webview, parent as ViewGroup, false)
-        val actor = WebViewActor(null, pages.credits, view)
+        val actor = WebDash(xx, pages.credits)
+        val view = actor.createView(ctx, parent as ViewGroup)
+        actor.attach(view)
         onBack = { actor.reload() }
         return view
     }
@@ -213,7 +219,7 @@ class CreditsDash(
 
 class AutoStartDash(
         val ctx: Context,
-        val s: State = ctx.inject().instance()
+        val s: Tunnel = ctx.inject().instance()
 ) : Dash(
         "main_autostart",
         icon = false,
@@ -238,7 +244,7 @@ class AutoStartDash(
 
 class ConnectivityDash(
         val ctx: Context,
-        val s: State = ctx.inject().instance()
+        val s: Device = ctx.inject().instance()
 ) : Dash(
         "main_connectivity",
         icon = false,
@@ -298,7 +304,9 @@ class ShareLogDash(
         val ctx: Context = xx().instance(),
         val activity: ComponentProvider<Activity> = xx().instance(),
         val j: Journal = xx().instance(),
-        val s: State = xx().instance()
+        val s: Device = xx().instance(),
+        val k: KeepAlive = xx().instance(),
+        val f: Filters = xx().instance()
 ) : Dash(
         DASH_ID_LOG,
         R.drawable.ic_comment_multiple_outline,
@@ -309,16 +317,17 @@ class ShareLogDash(
                 j.log("device: ${Build.MANUFACTURER}, ${Build.MODEL}, ${Build.PRODUCT}")
                 j.log("os: ${Build.VERSION.SDK_INT}")
                 j.log("app: ${BuildConfig.FLAVOR} ${BuildConfig.BUILD_TYPE} ${BuildConfig.VERSION_CODE}")
-                j.log("hostsCount: ${s.filtersCompiled().size}")
-                j.log("keepAlive: ${s.keepAlive()}")
+                j.log("hostsCount: ${f.filtersCompiled().size}")
+                j.log("keepAlive: ${k.keepAlive()}")
                 j.log("onlineOnly: ${s.watchdogOn()}")
                 j.log("basic config end")
 
                 val file = File(getPersistencePath(ctx).absoluteFile, "blokada-log.txt")
-                Runtime.getRuntime().exec(arrayOf("logcat", "-f", file.absolutePath));
+                Runtime.getRuntime().exec(arrayOf("logcat", "-v", "threadtime", "-f", file.absolutePath));
                 val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", file)
                 val intent = ShareCompat.IntentBuilder.from(activity.get()).setStream(uri).intent
                 intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 intent.setData(uri)
                 ctx.startActivity(intent)
             } catch (e: Exception) {

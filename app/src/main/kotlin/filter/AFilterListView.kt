@@ -12,15 +12,15 @@ import core.Filter
 import core.UiState
 import gs.environment.inject
 import gs.presentation.Spacing
+import gs.property.IWhen
 import org.blokada.R
-import org.obsolete.IWhen
 
 class AFilterListView(
         ctx: Context,
         attributeSet: AttributeSet
 ) : RecyclerView(ctx, attributeSet) {
 
-    private val s by lazy { context.inject().instance<core.State>() }
+    private val s by lazy { context.inject().instance<core.Filters>() }
     private val ui by lazy { context.inject().instance<UiState>() }
     private var filters = listOf<Filter>()
     private var listener: IWhen? = null

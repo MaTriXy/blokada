@@ -6,7 +6,10 @@ import android.content.Context
 import android.content.DialogInterface
 import android.view.WindowManager
 import com.github.salomonbrys.kodein.instance
-import core.*
+import core.Filter
+import core.Filters
+import core.IFilterSource
+import core.LocalisedFilter
 import gs.environment.ComponentProvider
 import gs.environment.Journal
 import gs.environment.inject
@@ -14,7 +17,7 @@ import org.blokada.R
 
 class AFilterGenerateDialog(
         private val ctx: Context,
-        private val s: State,
+        private val s: Filters,
         private val sourceProvider: (String) -> IFilterSource,
         private val whitelist: Boolean
 ) {
@@ -28,15 +31,15 @@ class AFilterGenerateDialog(
         val d = AlertDialog.Builder(activity)
         d.setTitle(R.string.filter_generate_title)
         val options = if (whitelist) { arrayOf(
-                ctx.getString(R.string.filter_generate_defaults),
                 ctx.getString(R.string.filter_generate_refetch),
+                ctx.getString(R.string.filter_generate_defaults),
                 ctx.getString(R.string.filter_generate_whitelist_system),
                 ctx.getString(R.string.filter_generate_whitelist_system_disabled),
                 ctx.getString(R.string.filter_generate_whitelist_all),
                 ctx.getString(R.string.filter_generate_whitelist_all_disabled)
         ) } else { arrayOf(
-                ctx.getString(R.string.filter_generate_defaults),
-                ctx.getString(R.string.filter_generate_refetch)
+                ctx.getString(R.string.filter_generate_refetch),
+                ctx.getString(R.string.filter_generate_defaults)
         ) }
         d.setSingleChoiceItems(options, which, object : DialogInterface.OnClickListener {
             override fun onClick(dialog: DialogInterface?, which: Int) {
@@ -63,16 +66,18 @@ class AFilterGenerateDialog(
     }
 
     private fun handleSave() {
-        if (s.apps().isEmpty()) s.apps.refresh(blocking = true)
         when (which) {
             0 -> {
+                s.apps.refresh(force = true)
+                s.filters.refresh(force = true)
+            }
+            1 -> {
+                s.apps.refresh(force = true)
                 s.filters %= emptyList()
                 s.filters.refresh()
             }
-            1 -> {
-                s.filters.refresh(force = true)
-            }
             2, 3, 4, 5 -> {
+                if (s.apps().isEmpty()) s.apps.refresh(blocking = true)
                 val filters = s.apps().filter { which in listOf(3, 4) || it.system }
                         .map { it.appId }.map { app ->
                     val source = sourceProvider("app")
@@ -90,6 +95,7 @@ class AFilterGenerateDialog(
 
                 // TODO: preserve user comments
                 s.filters %= s.filters().minus(filters).plus(filters) // To re-add equal instances
+                s.changed %= true
             }
         }
         dialog.dismiss()

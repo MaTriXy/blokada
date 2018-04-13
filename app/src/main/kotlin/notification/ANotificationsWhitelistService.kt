@@ -10,11 +10,11 @@ import org.blokada.R
 import core.Filter
 import filter.FilterSourceSingle
 import core.LocalisedFilter
-import core.State
+import core.Filters
 
 class ANotificationsWhitelistService : IntentService("notificationsWhitelist") {
 
-    private val s by lazy { inject().instance<State>() }
+    private val s by lazy { inject().instance<Filters>() }
 
     override fun onHandleIntent(intent: Intent) {
         val host = intent.getStringExtra("host") ?: return
@@ -30,9 +30,10 @@ class ANotificationsWhitelistService : IntentService("notificationsWhitelist") {
         val existing = s.filters().firstOrNull { it == filter }
         if (existing == null) {
             s.filters %= s.filters() + filter
+            s.changed %= true
         } else if (!existing.active) {
             existing.active = true
-            s.filters %= s.filters() // TODO: not sure if it's nice
+            s.changed %= true
         }
 
         promiseOnUi {

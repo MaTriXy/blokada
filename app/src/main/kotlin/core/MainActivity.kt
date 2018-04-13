@@ -2,6 +2,7 @@ package core
 
 import android.app.Activity
 import android.app.NotificationManager
+import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.support.design.widget.CoordinatorLayout
@@ -14,16 +15,17 @@ import com.github.salomonbrys.kodein.instance
 import com.github.salomonbrys.kodein.with
 import gs.environment.ComponentProvider
 import gs.environment.Journal
+import gs.environment.Worker
 import gs.environment.inject
 import gs.obsolete.Sync
 import gs.presentation.isWrongInstance
+import gs.property.Device
+import gs.property.IWhen
 import gs.property.Version
 import io.codetail.widget.RevealFrameLayout
 import nl.komponents.kovenant.task
 import org.blokada.BuildConfig
 import org.blokada.R
-import org.obsolete.IWhen
-import org.obsolete.KContext
 import tunnel.startAskTunnelPermissions
 import tunnel.stopAskTunnelPermissions
 import java.lang.ref.WeakReference
@@ -44,11 +46,13 @@ class MainActivity : AppCompatActivity(), LazyKodeinAware {
     private val activityProvider: ComponentProvider<MainActivity> by instance()
     private val j: Journal by instance()
 
-    private val s: State by instance()
+    private val s: Filters by instance()
+    private val t: Tunnel by instance()
+    private val d: Device by instance()
     private val ui: UiState by instance()
     private val pages: Pages by instance()
 
-    private val ictx: KContext by kodein.with("infotext").instance()
+    private val ictx: Worker by kodein.with("infotext").instance()
     private var currentlyDisplayed: InfoType? = null
 
     // TODO: less stuff in this class, more modules
@@ -96,7 +100,7 @@ class MainActivity : AppCompatActivity(), LazyKodeinAware {
 
         ATopBarActor(
                 xx = kodein,
-                m = s,
+                m = t,
                 v = topBar!!,
                 enabledStateActor = enabledStateActor,
                 contentActor = contentActor!!,
@@ -113,17 +117,11 @@ class MainActivity : AppCompatActivity(), LazyKodeinAware {
         grid?.contentActor = contentActor
 
         val updateItems = {
-            when (ui.editUi()) {
-                true -> ui.dashes()
-                else -> ui.dashes().filter(Dash::active)
-            }
+                ui.dashes().filter(Dash::active)
         }
 
         grid?.items = updateItems()
         listener11 = ui.dashes.doOnUiWhenSet().then {
-            grid?.items = updateItems()
-        }
-        listener12 = ui.editUi.doOnUiWhenChanged().then {
             grid?.items = updateItems()
         }
 
@@ -132,7 +130,7 @@ class MainActivity : AppCompatActivity(), LazyKodeinAware {
         }
 
         val fab = findViewById(R.id.fab) as AFloaterView
-        AFabActor(fab, s, enabledStateActor, contentActor!!)
+        AFabActor(fab, t, enabledStateActor, contentActor!!)
 
         if (landscape) {
             topBar?.mode = ATopBarView.Mode.BAR
@@ -155,9 +153,6 @@ class MainActivity : AppCompatActivity(), LazyKodeinAware {
         val version: Version by instance()
         val m = WelcomeDialogManager(kodein, BuildConfig.VERSION_CODE, {})
         m.run()
-        welcome.introUrl.doOnUiWhenChanged(withInit = true).then { m.run() }
-        version.obsolete.doOnUiWhenChanged(withInit = true).then { m.run() }
-
     }
 
     val activityResultListeners = mutableListOf({result: Int, data: Intent? -> })
@@ -186,7 +181,7 @@ class MainActivity : AppCompatActivity(), LazyKodeinAware {
                 try {
                     askPermissions()
                 } catch (e: Exception) {
-                    s.active %= false
+                    t.active %= false
                 }
 //                engineState.enabled.changed()
             }
@@ -205,7 +200,7 @@ class MainActivity : AppCompatActivity(), LazyKodeinAware {
 
     override fun onResume() {
         super.onResume()
-        enabledStateActor.update(s)
+        enabledStateActor.update(t)
         infoQueueHandler(ui.infoQueue())
     }
 
@@ -260,17 +255,11 @@ class MainActivity : AppCompatActivity(), LazyKodeinAware {
                 else -> throw Exception("custom info without a param")
             }
             InfoType.ERROR -> brandedString(R.string.main_paused)
-            InfoType.PAUSED -> when {
-                s.firstRun() -> brandedString(R.string.main_intro)
-                else -> brandedString(R.string.main_paused)
-            }
+            InfoType.PAUSED -> brandedString(R.string.main_paused)
             InfoType.PAUSED_TETHERING -> brandedString(R.string.main_paused_autoenable_tethering)
             InfoType.PAUSED_OFFLINE -> brandedString(R.string.main_paused_autoenable)
             InfoType.ACTIVATING -> brandedString(R.string.main_loading)
-            InfoType.ACTIVE -> when {
-                s.firstRun() -> brandedString(R.string.main_active_new)
-                else -> brandedString(R.string.main_active)
-            }
+            InfoType.ACTIVE -> brandedString(R.string.main_active)
             InfoType.DEACTIVATING -> brandedString(R.string.main_deactivating_new)
             InfoType.NOTIFICATIONS_DISABLED -> brandedString(R.string.notification_disabled)
             InfoType.NOTIFICATIONS_ENABLED -> brandedString(R.string.notification_enabled)
@@ -287,10 +276,10 @@ class MainActivity : AppCompatActivity(), LazyKodeinAware {
 
         override fun finishDeactivating() {
             when {
-                !s.enabled() -> ui.infoQueue %= listOf(Info(InfoType.PAUSED))
-                s.restart() && s.connection().tethering ->
+                !t.enabled() -> ui.infoQueue %= listOf(Info(InfoType.PAUSED))
+                t.restart() && d.tethering() ->
                     ui.infoQueue %= listOf(Info(InfoType.PAUSED_TETHERING))
-                s.restart() && !s.connection().connected -> ui.infoQueue %= listOf(Info(InfoType.PAUSED_OFFLINE))
+                t.restart() && !d.connected() -> ui.infoQueue %= listOf(Info(InfoType.PAUSED_OFFLINE))
                 else -> ui.infoQueue %= listOf(Info(InfoType.ERROR))
             }
         }
@@ -338,5 +327,9 @@ class MainActivity : AppCompatActivity(), LazyKodeinAware {
 //            act.startActivity(intent)
 //        }
     }
+}
+
+fun Context.getBrandedString(resId: Int): String {
+    return getString(resId, getString(R.string.branding_app_name_short))
 }
 

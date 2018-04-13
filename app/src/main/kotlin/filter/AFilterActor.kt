@@ -1,14 +1,14 @@
 package filter
 
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.drawable.Drawable
 import android.net.Uri
 import com.github.salomonbrys.kodein.instance
 import core.Filter
-import core.State
+import core.Filters
+import core.IFilterSource
 import gs.environment.inject
-import org.blokada.R
-import core.sourceToIcon
-import core.sourceToName
 
 
 class AFilterActor(
@@ -16,7 +16,7 @@ class AFilterActor(
         private val v: AFilterView
 ) {
     private val dialog by lazy { v.context.inject().instance<AFilterAddDialog>() }
-    private val s by lazy { v.context.inject().instance<State>() }
+    private val s by lazy { v.context.inject().instance<Filters>() }
 
     var filter = initialFilter
         set(value) {
@@ -38,7 +38,6 @@ class AFilterActor(
         v.showDelete = true
         v.onSwitched = { active ->
             filter.active = active
-            s.filters %= s.filters()
         }
     }
 
@@ -52,8 +51,6 @@ class AFilterActor(
             v.icon = sourceToIcon(v.context, filter.source)
             v.counter = null
             v.source = filter.source.toUserInput()
-            if (filter.localised?.comment == null && s.tunnelActiveEngine() != "lollipop")
-                v.description = v.context.getString(R.string.filter_edit_app_unsupported)
             v.credit = null
         } else if (filter.source is FilterSourceSingle) {
             v.icon = null
@@ -66,14 +63,10 @@ class AFilterActor(
             v.multiple = true
             v.counter = if (filter.hosts.isNotEmpty()) filter.hosts.size else null
 
-            // Credit source
-            val source = filter.source
+            // Credit
+            val credit = filter.credit
             v.credit = try {
-                Intent(Intent.ACTION_VIEW, when (source) {
-                    is FilterSourceLink -> Uri.parse(source.source?.toExternalForm())
-                    is FilterSourceUri -> source.source
-                    else -> throw Exception("no source")
-                })
+                Intent(Intent.ACTION_VIEW, Uri.parse(credit))
             } catch (e: Exception) { null }
             v.credit?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
@@ -87,3 +80,15 @@ class AFilterActor(
         }
     }
 }
+
+internal fun sourceToIcon(ctx: android.content.Context, source: IFilterSource): Drawable? {
+    return when (source) {
+        is FilterSourceApp -> { try {
+            ctx.packageManager.getApplicationIcon(
+                    ctx.packageManager.getApplicationInfo(source.source, PackageManager.GET_META_DATA)
+            )
+        } catch (e: Exception) { null }}
+        else -> null
+    }
+}
+

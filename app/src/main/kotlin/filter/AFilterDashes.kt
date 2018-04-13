@@ -5,17 +5,11 @@ import android.view.LayoutInflater
 import android.view.ViewGroup
 import com.github.salomonbrys.kodein.instance
 import com.github.salomonbrys.kodein.provider
-import com.github.salomonbrys.kodein.with
+import core.*
 import gs.environment.ComponentProvider
 import gs.environment.inject
-import nl.komponents.kovenant.task
+import gs.property.IWhen
 import org.blokada.R
-import core.MainActivity
-import core.Dash
-import core.Filter
-import core.State
-import core.UiState
-import org.obsolete.IWhen
 
 val DASH_ID_BLACKLIST = "filter_blacklist"
 val DASH_ID_WHITELIST = "filter_whitelist"
@@ -24,27 +18,18 @@ private val KCTX = "filter-dashes"
 
 class DashFilterBlacklist(
         val ctx: Context,
-        val s: State = ctx.inject().instance()
+        val s: Filters = ctx.inject().instance()
 ) : Dash(DASH_ID_BLACKLIST,
         R.drawable.ic_shield_outline,
         text = ctx.getString(R.string.filter_blacklist_text_none),
         menuDashes = Triple(AddBlacklist(ctx, s), GenerateBlacklist(ctx, s), null),
-        onDashOpen = { task(ctx.inject().with(KCTX).instance()) {
-            var changed = false
-            s.filters().filter { !it.whitelist }.forEach {
-                if (it.hosts.isEmpty()) {
-                    it.hosts = it.source.fetch()
-                    changed = true
-                }
-            }
-            if (changed) s.filters %= s.filters()
-        }},
+        onBack = { s.changed %= true },
         hasView = true
 ) {
     private var listener: IWhen? = null
 
     init {
-        listener = s.filters.doOnUiWhenSet().then {
+        listener = s.changed.doOnUiWhenSet().then {
             update(s.filters().filter { it.active && !it.whitelist })
         }
     }
@@ -67,7 +52,7 @@ class DashFilterBlacklist(
 
 class DashFilterWhitelist(
         val ctx: Context,
-        val s: State = ctx.inject().instance(),
+        val s: Filters = ctx.inject().instance(),
         val ui: UiState = ctx.inject().instance()
 ) : Dash(DASH_ID_WHITELIST,
         R.drawable.ic_verified,
@@ -75,23 +60,14 @@ class DashFilterWhitelist(
         menuDashes = Triple(
                 AddWhitelist(ctx, s), GenerateWhitelist(ctx, s), ShowSystemAppsWhitelist(ctx, ui)
         ),
-        onDashOpen = { task(ctx.inject().with(KCTX).instance()) {
-            var changed = false
-            s.filters().filter { it.whitelist }.forEach {
-                if (it.hosts.isEmpty()) {
-                    it.hosts = it.source.fetch()
-                    changed = true
-                }
-            }
-            if (changed) s.filters %= s.filters()
-        }},
+        onBack = { s.changed %= true },
         hasView = true
 ) {
 
     private var listener: IWhen? = null
 
     init {
-        listener = s.filters.doOnUiWhenSet().then {
+        listener = s.changed.doOnUiWhenSet().then {
             update(s.filters().filter { it.active && it.whitelist })
         }
     }
@@ -114,7 +90,7 @@ class DashFilterWhitelist(
 
 class AddBlacklist(
         val ctx: Context,
-        val s: State = ctx.inject().instance()
+        val s: Filters = ctx.inject().instance()
 ) : Dash(
         "filter_blacklist_add",
         R.drawable.ic_filter_add,
@@ -132,7 +108,7 @@ class AddBlacklist(
 
 class AddWhitelist(
         val ctx: Context,
-        val s: State = ctx.inject().instance()
+        val s: Filters = ctx.inject().instance()
 ) : Dash(
         "filter_whitelist_add",
         R.drawable.ic_filter_add,
@@ -150,7 +126,7 @@ class AddWhitelist(
 
 class GenerateWhitelist(
         val ctx: Context,
-        val s: State = ctx.inject().instance()
+        val s: Filters = ctx.inject().instance()
 ) : Dash(
         "filter_whitelist_generate",
         R.drawable.ic_tune,
@@ -164,7 +140,7 @@ class GenerateWhitelist(
 
 class GenerateBlacklist(
         val ctx: Context,
-        val s: State = ctx.inject().instance()
+        val s: Filters = ctx.inject().instance()
 ) : Dash(
         "filter_blacklist_generate",
         R.drawable.ic_tune,

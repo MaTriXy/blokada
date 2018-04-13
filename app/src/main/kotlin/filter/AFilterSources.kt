@@ -4,8 +4,8 @@ import android.content.Context
 import android.net.Uri
 import android.util.Base64
 import com.github.salomonbrys.kodein.instance
+import core.Filters
 import core.IFilterSource
-import core.State
 import gs.environment.Journal
 import gs.environment.inject
 import gs.environment.load
@@ -122,18 +122,16 @@ class FilterSourceUri(
 
 class FilterSourceApp(
         private val ctx: Context,
+        private val j: Journal,
         var source: String? = null
 ) : IFilterSource {
 
     var system: Boolean = false
         private set
 
-    private val s by lazy { ctx.inject().instance<State>() }
+    private val s by lazy { ctx.inject().instance<Filters>() }
 
     private val apps by lazy {
-        if (s.apps().isEmpty()) {
-            s.apps.refresh(force = true, blocking = true)
-        }
         s.apps().flatMap { listOf(it.appId to it.appId, it.appId.toLowerCase() to it.appId,
                 it.label to it.appId, it.label.toLowerCase() to it.label) }.toMap()
     }
@@ -149,10 +147,13 @@ class FilterSourceApp(
 
     override fun fromUserInput(vararg string: String): Boolean {
         return try {
-            source = apps[string[0].toLowerCase()] ?: throw Exception()
+            source = apps[string[0].toLowerCase()] ?: throw Exception("unknown app: ${string[0]}")
             system = s.apps().first { it.appId == source }.system
             true
-        } catch (e: Exception) { false }
+        } catch (e: Exception) {
+            j.log("FilterSourceApp: fromUserInput: fail", e)
+            false
+        }
     }
 
     override fun toUserInput(): String {
